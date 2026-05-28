@@ -1,0 +1,46 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-gray-900 transition-colors duration-200;
+}
+
+body.dark {
+  @apply bg-gray-950 text-gray-100;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-300 rounded-full hover:bg-primary-400;
+}
+
+/* Smooth transitions for all interactive elements */
+button,
+a {
+  @apply transition-all duration-200;
+}
+
+/* Accessibility focus styles */
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-primary-500;
+}
