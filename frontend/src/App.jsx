@@ -12,7 +12,9 @@ import { Footer } from './components/Footer.jsx';
 import { Home } from './pages/Home.jsx';
 import { Login } from './pages/Login.jsx';
 import { RoutePlanner } from './pages/RoutePlanner.jsx';
-import { Settings } from './pages/Settings.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
+import SavedRoutesPage from './pages/SavedRoutesPage.jsx';
+import TravelHistoryPage from './pages/TravelHistoryPage.jsx';
 
 // Styles
 import './styles/globals.css';
@@ -56,8 +58,26 @@ export function App() {
               path="/settings"
               element={
                 <ProtectedRoute>
-                  <Settings />
+                  <SettingsPage />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/saved-routes"
+              element={
+                <ProtectedRoute>
+                  <SavedRoutesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <ProtectedRoute>
+                  <TravelHistoryPage />
+                </ProtectedRoute>
+              }
+            />
               }
             />
             <Route path="*" element={<Navigate to="/" />} />
