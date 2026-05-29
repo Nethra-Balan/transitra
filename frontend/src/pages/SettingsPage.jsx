@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useUIStore } from '../store/store';
 import { AccessibilitySettings } from '../components/AccessibilitySettings';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
-import { Loading } from '../components/Loading';
+import { LoadingSpinner, SkeletonLoader } from '../components/Loading';
 import { Save } from 'lucide-react';
 
 export const SettingsPage = () => {
@@ -65,7 +65,7 @@ export const SettingsPage = () => {
     }
   };
 
-  if (loading) return <Loading.LoadingSpinner />;
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
@@ -162,7 +162,7 @@ export const SettingsPage = () => {
                   { id: 'fastest', label: 'Fastest route', icon: '⚡' },
                   { id: 'cheapest', label: 'Cheapest route', icon: '💰' },
                   { id: 'accessible', label: 'Accessibility', icon: '♿' },
-                  { id: 'least_walking', label: 'Least walking', icon: '🚶' },
+                  { id: 'leastWalking', label: 'Least walking', icon: '🚶' },
                 ].map((option) => (
                   <label
                     key={option.id}

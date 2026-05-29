@@ -38,6 +38,7 @@ export class PreferencesController {
         darkMode,
         highContrast,
         fontSize,
+        language,
       } = req.body;
 
       const preferences = await Preferences.findOneAndUpdate(
@@ -52,6 +53,7 @@ export class PreferencesController {
           darkMode,
           highContrast,
           fontSize,
+          language,
         },
         { new: true }
       );

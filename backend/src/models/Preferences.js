@@ -24,6 +24,11 @@ const preferencesSchema = new mongoose.Schema(
       enum: ['small', 'normal', 'large', 'xlarge'],
       default: 'normal',
     },
+    language: {
+      type: String,
+      enum: ['en', 'ta'],
+      default: 'en',
+    },
   },
   { timestamps: true }
 );

@@ -35,25 +35,23 @@ const useVoiceRecognition = () => {
     };
 
     recognition.onresult = (event) => {
+      let finalTranscript = '';
       let interimTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcriptSegment = event.results[i][0].transcript;
 
         if (event.results[i].isFinal) {
-          setTranscript((prev) => prev + transcriptSegment + ' ');
+          finalTranscript += transcriptSegment + ' ';
         } else {
           interimTranscript += transcriptSegment;
         }
       }
 
-      // Update UI with interim results
-      if (interimTranscript) {
-        setTranscript((prev) => {
-          const arr = prev.split('|');
-          arr[1] = interimTranscript;
-          return arr.join('|');
-        });
+      if (finalTranscript) {
+        setTranscript((prev) => `${prev}${finalTranscript}`.trim());
+      } else if (interimTranscript) {
+        setTranscript(interimTranscript.trim());
       }
     };
 
