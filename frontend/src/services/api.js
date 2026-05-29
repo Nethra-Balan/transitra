@@ -40,9 +40,12 @@ export const authAPI = {
 
 export const routesAPI = {
   searchRoutes: (data) => apiClient.post('/routes/search', data),
+  getGoogleDirections: (data) => apiClient.post('/routes/directions', data),
   analyzeRoutes: (data) => apiClient.post('/routes/analyze', data),
   getAllStops: () => apiClient.get('/routes/stops'),
   searchStops: (query) => apiClient.get('/routes/search-stops', { params: { query } }),
+  autocompletePlaces: (input) => apiClient.get('/routes/autocomplete', { params: { input } }),
+  getPlaceDetails: (placeId) => apiClient.get('/routes/place-details', { params: { placeId } }),
   getNearbyStops: (lat, lng, radius) =>
     apiClient.get('/routes/nearby', { params: { latitude: lat, longitude: lng, radius } }),
   getAllRoutes: () => apiClient.get('/routes/all'),

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Trash2, Star, Clock, DollarSign } from 'lucide-react';
 import { routesAPI } from '../services/api';
-import { Loading } from '../components/Loading';
+import { LoadingSpinner, SkeletonLoader } from '../components/Loading';
 
 export const SavedRoutesPage = () => {
   const [savedRoutes, setSavedRoutes] = useState([]);
@@ -65,7 +65,7 @@ export const SavedRoutesPage = () => {
     return true;
   });
 
-  if (loading) return <Loading.LoadingSpinner />;
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="max-w-6xl mx-auto p-4">

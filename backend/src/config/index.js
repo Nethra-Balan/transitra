@@ -20,6 +20,9 @@ export const config = {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   },
+  googleMaps: {
+    apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+  },
   mockData: {
     enabled: process.env.USE_MOCK_DATA === 'true',
   },

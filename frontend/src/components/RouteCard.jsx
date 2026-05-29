@@ -1,6 +1,22 @@
 import { Clock, MapPin, DollarSign, Footprints, Accessibility } from 'lucide-react';
 
 export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) => {
+  const rawDuration = route.totalDuration || route.legs?.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0) || 0;
+  const duration = rawDuration > 120 ? Math.round(rawDuration / 60) : rawDuration;
+  const fare = route.baseFare || route.fareText || 'N/A';
+  const walkingDistance = route.walkingDistance || (route.legs?.reduce((sum, leg) => {
+    if (leg.travel_mode === 'WALKING') {
+      return sum + (leg.distance?.value || 0);
+    }
+    return sum;
+  }, 0) / 1000) || 0;
+  const steps = route.stops?.length
+    ? route.stops.slice(0, 3).map((stop) => stop.stopName)
+    : route.legs?.flatMap((leg) => [leg.start_address, leg.end_address]).filter(Boolean).slice(0, 3) || [];
+  const stopsCount = route.stopsCount || route.stops?.length || route.legs?.length || '-';
+  const routeName = route.routeNumber || route.summary || route.routeName || 'Direct route';
+  const routeType = route.type || (route.legs?.some((leg) => leg.travel_mode === 'TRANSIT') ? 'transit' : 'walk');
+
   return (
     <div
       onClick={onClick}
@@ -13,7 +29,7 @@ export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) 
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Route {route.routeNumber}</h3>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{routeName}</h3>
           {recommendationReason && (
             <p className="text-sm text-primary-600 dark:text-primary-400 font-medium">
               ⭐ {recommendationReason}
@@ -21,11 +37,11 @@ export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) 
           )}
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-          route.type === 'express'
+          routeType === 'express'
             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
             : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
         }`}>
-          {route.type === 'express' ? 'Express' : 'Ordinary'}
+          {routeType === 'express' ? 'Express' : routeType === 'transit' ? 'Transit' : 'Ordinary'}
         </span>
       </div>
 
@@ -35,7 +51,7 @@ export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) 
           <Clock size={18} className="text-primary-500" />
           <div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Duration</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{route.totalDuration} min</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{Math.round(duration)} min</p>
           </div>
         </div>
 
@@ -43,7 +59,7 @@ export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) 
           <DollarSign size={18} className="text-accent-terracotta" />
           <div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Fare</p>
-            <p className="font-semibold text-gray-900 dark:text-white">₹{route.baseFare}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{fare}</p>
           </div>
         </div>
 
@@ -51,7 +67,7 @@ export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) 
           <Footprints size={18} className="text-accent-purple" />
           <div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Walking</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{route.walkingDistance} km</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{walkingDistance ? walkingDistance.toFixed(1) : 'N/A'} km</p>
           </div>
         </div>
 
@@ -59,7 +75,7 @@ export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) 
           <MapPin size={18} className="text-gray-500" />
           <div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Stops</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{route.stopsCount}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{stopsCount}</p>
           </div>
         </div>
       </div>
@@ -68,13 +84,13 @@ export const RouteCard = ({ route, isSelected, onClick, recommendationReason }) 
       <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Route Path</p>
         <div className="space-y-1">
-          {route.stops.slice(0, 3).map((stop, idx) => (
+          {steps.map((stop, idx) => (
             <p key={idx} className="text-sm text-gray-700 dark:text-gray-300">
               {idx > 0 && '→ '}
-              {stop.stopName}
+              {stop}
             </p>
           ))}
-          {route.stops.length > 3 && (
+          {route.stops?.length > 3 && (
             <p className="text-xs text-gray-500 dark:text-gray-500 italic">
               ... and {route.stops.length - 3} more stops
             </p>

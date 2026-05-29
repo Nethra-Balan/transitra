@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, DollarSign, Star, TrendingDown } from 'lucide-react';
-import { Loading } from '../components/Loading';
+import { LoadingSpinner, SkeletonLoader } from '../components/Loading';
 
 export const TravelHistoryPage = () => {
   const [history, setHistory] = useState([]);
@@ -46,7 +46,7 @@ export const TravelHistoryPage = () => {
     }
   };
 
-  if (loading) return <Loading.LoadingSpinner />;
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="max-w-6xl mx-auto p-4">

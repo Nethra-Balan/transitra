@@ -3,12 +3,16 @@ import { routesAPI } from '../services/api.js';
 import { RouteCard } from '../components/RouteCard.jsx';
 import { LoadingSpinner, SkeletonLoader } from '../components/Loading.jsx';
 import VoiceAssistant from '../components/VoiceAssistant.jsx';
+import { PlaceSearchInput } from '../components/PlaceSearchInput.jsx';
 import { Search, MapPin, Mic, Heart } from 'lucide-react';
 
 export const RoutePlanner = () => {
+  const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
   const [stops, setStops] = useState([]);
-  const [sourceStop, setSourceStop] = useState('');
-  const [destinationStop, setDestinationStop] = useState('');
+  const [sourceInput, setSourceInput] = useState('');
+  const [destinationInput, setDestinationInput] = useState('');
+  const [sourceSelection, setSourceSelection] = useState(null);
+  const [destinationSelection, setDestinationSelection] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -38,21 +42,40 @@ export const RoutePlanner = () => {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!sourceStop || !destinationStop) {
-      alert('Please select both source and destination');
+
+    const canUseGoogleSearch = googleEnabled && sourceInput && destinationInput;
+    const canUseLocalStops = sourceSelection?.type === 'stop' && destinationSelection?.type === 'stop';
+
+    if (!canUseGoogleSearch && !canUseLocalStops) {
+      alert('Please select both source and destination from the suggestions or type them with Google Maps enabled');
       return;
     }
 
     try {
       setSearching(true);
-      const response = await routesAPI.searchRoutes({
-        sourceStopId: sourceStop,
-        destinationStopId: destinationStop,
-        userQuery: userQuery || undefined,
-      });
+      let response;
 
-      setRoutes(response.data.routes);
-      setAnalysis(response.data.analysis);
+      if (canUseGoogleSearch) {
+        response = await routesAPI.getGoogleDirections({
+          origin: sourceSelection?.type === 'stop' ? sourceSelection.stop.name : sourceInput,
+          destination: destinationSelection?.type === 'stop' ? destinationSelection.stop.name : destinationInput,
+          transitPreference: 'less_walking',
+          userQuery: userQuery || undefined,
+        });
+
+        setRoutes([response.data.route]);
+        setAnalysis(null);
+      } else {
+        response = await routesAPI.searchRoutes({
+          sourceStopId: sourceSelection.stop._id,
+          destinationStopId: destinationSelection.stop._id,
+          userQuery: userQuery || undefined,
+        });
+
+        setRoutes(response.data.routes);
+        setAnalysis(response.data.analysis);
+      }
+
       setSelectedRoute(null);
     } catch (error) {
       console.error('Error searching routes:', error);
@@ -63,25 +86,54 @@ export const RoutePlanner = () => {
   };
 
   const handleVoiceTranscript = (transcript) => {
-    // Try to find matching stop
     const matchingStop = stops.find((stop) =>
       stop.name.toLowerCase().includes(transcript.toLowerCase())
     );
 
-    if (matchingStop) {
-      setDestinationStop(matchingStop._id);
-    } else {
-      // Set as query if no exact match
-      setUserQuery(transcript);
+    if (!sourceSelection && !sourceInput) {
+      if (matchingStop) {
+        setSourceSelection({ type: 'stop', stop: matchingStop });
+        setSourceInput(matchingStop.name);
+      } else {
+        setSourceInput(transcript);
+      }
+      return;
     }
+
+    if (!destinationSelection && !destinationInput) {
+      if (matchingStop) {
+        setDestinationSelection({ type: 'stop', stop: matchingStop });
+        setDestinationInput(matchingStop.name);
+      } else {
+        setDestinationInput(transcript);
+      }
+      return;
+    }
+
+    setUserQuery(transcript);
   };
 
   const saveRoute = async () => {
     if (!routeName || !selectedRoute) return;
 
     try {
-      const sourceStopObj = stops.find((s) => s._id === sourceStop);
-      const destStopObj = stops.find((s) => s._id === destinationStop);
+      const sourceName = sourceSelection?.type === 'stop'
+        ? sourceSelection.stop.name
+        : sourceSelection?.description || sourceInput;
+      const destinationName = destinationSelection?.type === 'stop'
+        ? destinationSelection.stop.name
+        : destinationSelection?.description || destinationInput;
+
+      const sourceCoordinates = selectedRoute?.legs?.[0]?.start_location
+        ? [selectedRoute.legs[0].start_location.lng, selectedRoute.legs[0].start_location.lat]
+        : sourceSelection?.type === 'stop'
+        ? sourceSelection.stop.location.coordinates
+        : [];
+      const destinationCoordinates = selectedRoute?.legs?.[0]?.end_location
+        ? [selectedRoute.legs[0].end_location.lng, selectedRoute.legs[0].end_location.lat]
+        : destinationSelection?.type === 'stop'
+        ? destinationSelection.stop.location.coordinates
+        : [];
 
       const response = await fetch('/api/history', {
         method: 'POST',
@@ -92,20 +144,20 @@ export const RoutePlanner = () => {
         body: JSON.stringify({
           name: routeName,
           sourceStop: {
-            stopId: sourceStop,
-            stopName: sourceStopObj?.name,
-            coordinates: sourceStopObj?.location?.coordinates || [],
+            stopId: sourceSelection?.type === 'stop' ? sourceSelection.stop._id : null,
+            stopName: sourceName,
+            coordinates: sourceCoordinates,
           },
           destinationStop: {
-            stopId: destinationStop,
-            stopName: destStopObj?.name,
-            coordinates: destStopObj?.location?.coordinates || [],
+            stopId: destinationSelection?.type === 'stop' ? destinationSelection.stop._id : null,
+            stopName: destinationName,
+            coordinates: destinationCoordinates,
           },
           selectedRoute: {
-            routeNumber: selectedRoute.routeNumber,
-            routeName: selectedRoute.routeName,
+            routeName: selectedRoute.summary || selectedRoute.routeName,
             totalDuration: selectedRoute.totalDuration,
-            baseFare: selectedRoute.baseFare,
+            baseFare: selectedRoute.fareText || selectedRoute.baseFare,
+            provider: selectedRoute.provider || 'local',
           },
         }),
       });
@@ -153,46 +205,30 @@ export const RoutePlanner = () => {
               <form onSubmit={handleSearch} className="space-y-4">
                 {/* Source */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    From
-                  </label>
-                  <div className="relative">
-                    <MapPin size={18} className="absolute left-3 top-3 text-gray-400" />
-                    <select
-                      value={sourceStop}
-                      onChange={(e) => setSourceStop(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
-                    >
-                      <option value="">Select source...</option>
-                      {stops.map((stop) => (
-                        <option key={stop._id} value={stop._id}>
-                          {stop.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <PlaceSearchInput
+                    label="From"
+                    value={sourceInput}
+                    onChange={setSourceInput}
+                    selectedValue={sourceSelection}
+                    onSelect={setSourceSelection}
+                    placeholder="Start typing an address or stop"
+                    localStops={stops}
+                    googleEnabled={googleEnabled}
+                  />
                 </div>
 
                 {/* Destination */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    To
-                  </label>
-                  <div className="relative">
-                    <MapPin size={18} className="absolute left-3 top-3 text-gray-400" />
-                    <select
-                      value={destinationStop}
-                      onChange={(e) => setDestinationStop(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-white"
-                    >
-                      <option value="">Select destination...</option>
-                      {stops.map((stop) => (
-                        <option key={stop._id} value={stop._id}>
-                          {stop.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <PlaceSearchInput
+                    label="To"
+                    value={destinationInput}
+                    onChange={setDestinationInput}
+                    selectedValue={destinationSelection}
+                    onSelect={setDestinationSelection}
+                    placeholder="Start typing a destination"
+                    localStops={stops}
+                    googleEnabled={googleEnabled}
+                  />
                 </div>
 
                 {/* User Query */}
@@ -309,28 +345,27 @@ export const RoutePlanner = () => {
 
                 {/* Route Cards */}
                 <div className="space-y-4">
-                  {routes.map((route, index) => (
-                    <div
-                      key={index}
-                      onClick={() => setSelectedRoute(route)}
-                      className={`cursor-pointer transition-all ${
-                        selectedRoute?._id === route._id
-                          ? 'ring-2 ring-primary'
-                          : ''
-                      }`}
-                    >
-                      <RouteCard route={route} />
-                      {selectedRoute?._id === route._id && (
-                        <button
-                          onClick={() => setShowSaveDialog(true)}
-                          className="w-full mt-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-opacity-90 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Heart size={16} />
-                          Save Route
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {routes.map((route, index) => {
+                    const isSelected = selectedRoute === route;
+                    return (
+                      <div key={index}>
+                        <RouteCard
+                          route={route}
+                          isSelected={isSelected}
+                          onClick={() => setSelectedRoute(route)}
+                        />
+                        {isSelected && (
+                          <button
+                            onClick={() => setShowSaveDialog(true)}
+                            className="w-full mt-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-opacity-90 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Heart size={16} />
+                            Save Route
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -349,59 +384,3 @@ export const RoutePlanner = () => {
 };
 
 export default RoutePlanner;
-                    </>
-                  ) : (
-                    <>
-                      <Search size={20} />
-                      Find Routes
-                    </>
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Routes Display */}
-          <div className="lg:col-span-2">
-            {routes.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-600 dark:text-gray-400">
-                  {searching ? 'Loading routes...' : 'Search to see available routes'}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    Found {routes.length} Route{routes.length !== 1 ? 's' : ''}
-                  </h2>
-                  {analysis && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                      <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                        💡 AI Analysis
-                      </p>
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
-                        {analysis.reasoning || 'Routes analyzed'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Route Cards */}
-                {routes.map((route) => (
-                  <RouteCard
-                    key={route.routeNumber}
-                    route={route}
-                    isSelected={selectedRoute?.routeNumber === route.routeNumber}
-                    onClick={() => setSelectedRoute(route)}
-                    recommendationReason={route.recommendationReason}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};

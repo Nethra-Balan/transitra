@@ -1,6 +1,7 @@
 import { RouteAlgorithmService } from '../services/routeAlgorithm.js';
 import { GeminiAgentService } from '../services/geminiAgent.js';
 import { TransportDataService } from '../services/transportData.js';
+import { GoogleMapsService } from '../services/googleMapsService.js';
 
 /**
  * Routes Controller
@@ -76,6 +77,71 @@ export class RoutesController {
     }
   }
 
+  static async getGoogleDirections(req, res, next) {
+    try {
+      const { origin, destination, transitPreference } = req.body;
+
+      if (!origin || !destination) {
+        return res.status(400).json({ error: 'Origin and destination are required' });
+      }
+
+      const originParam = typeof origin === 'object' && origin.placeId
+        ? `place_id:${origin.placeId}`
+        : typeof origin === 'object' && origin.coordinates
+        ? `${origin.coordinates[1]},${origin.coordinates[0]}`
+        : origin;
+
+      const destinationParam = typeof destination === 'object' && destination.placeId
+        ? `place_id:${destination.placeId}`
+        : typeof destination === 'object' && destination.coordinates
+        ? `${destination.coordinates[1]},${destination.coordinates[0]}`
+        : destination;
+
+      const directions = await GoogleMapsService.getDirections(
+        originParam,
+        destinationParam,
+        transitPreference || 'less_walking'
+      );
+
+      const route = directions.routes?.[0];
+      if (!route) {
+        return res.status(404).json({ error: 'No directions found' });
+      }
+
+      const leg = route.legs?.[0] || {};
+      const simplifiedSteps = (leg.steps || []).map((step) => ({
+        html_instructions: step.html_instructions,
+        travel_mode: step.travel_mode,
+        distance: step.distance,
+        duration: step.duration,
+        transit_details: step.transit_details,
+        maneuver: step.maneuver,
+        start_location: step.start_location,
+        end_location: step.end_location,
+      }));
+
+      res.json({
+        route: {
+          provider: 'google',
+          summary: route.summary,
+          totalDuration: leg.duration?.value,
+          totalDistance: leg.distance?.value,
+          durationText: leg.duration?.text,
+          distanceText: leg.distance?.text,
+          fareText: route.fare?.text,
+          overviewPolyline: route.overview_polyline?.points,
+          startAddress: leg.start_address,
+          endAddress: leg.end_address,
+          steps: simplifiedSteps,
+          legs: directions.routes?.[0]?.legs,
+        },
+        message: 'Directions retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * Get nearby stops
    */
@@ -102,6 +168,36 @@ export class RoutesController {
   /**
    * Search stops by name
    */
+  static async autocompletePlaces(req, res, next) {
+    try {
+      const { input, sessionToken } = req.query;
+
+      if (!input) {
+        return res.status(400).json({ error: 'Autocomplete input is required' });
+      }
+
+      const data = await GoogleMapsService.autocomplete(input, sessionToken);
+      res.json({ predictions: data.predictions, message: 'Autocomplete predictions fetched' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getPlaceDetails(req, res, next) {
+    try {
+      const { placeId } = req.query;
+
+      if (!placeId) {
+        return res.status(400).json({ error: 'Place ID is required' });
+      }
+
+      const place = await GoogleMapsService.getPlaceDetails(placeId);
+      res.json({ place, message: 'Place details fetched' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async searchStops(req, res, next) {
     try {
       const { query } = req.query;
